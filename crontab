@@ -3,4 +3,5 @@
 
 # Encender el bot a las 7:49 AM Cuba (UTC−4)
 49 11 * * * cd /app && python bot.py &
+\n
 
