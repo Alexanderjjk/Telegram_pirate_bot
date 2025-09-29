@@ -12,52 +12,52 @@ cursor = conn.cursor()
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY,
-        puntos INTEGER DEFAULT 0
+        saldo INTEGER DEFAULT 0  -- almacenado en centavos
     )
 ''')
 conn.commit()
 
-# --- Opciones con contenido y costo ---
-opciones = {
-    "Opción 1": {"contenido": "https://ejemplo.com/recurso1", "costo": 1},
-    "Opción 2": {"contenido": "https://ejemplo.com/recurso2", "costo": 2},
-    "Opción 3": {"contenido": "https://ejemplo.com/recurso3", "costo": 3}
+# --- Productos con contenido y precio en USD ---
+productos = {
+    "Curso básico IA": {"contenido": "https://ejemplo.com/curso1", "precio": 150},  # $1.50
+    "Pack de herramientas": {"contenido": "https://ejemplo.com/tools", "precio": 200},  # $2.00
+    "Plantilla premium": {"contenido": "https://ejemplo.com/template", "precio": 300}  # $3.00
 }
 
-# --- Funciones de puntos ---
-def obtener_puntos(user_id):
-    cursor.execute('SELECT puntos FROM usuarios WHERE id = ?', (user_id,))
+# --- Funciones de saldo ---
+def obtener_saldo(user_id):
+    cursor.execute('SELECT saldo FROM usuarios WHERE id = ?', (user_id,))
     resultado = cursor.fetchone()
     if resultado:
         return resultado[0]
     else:
-        cursor.execute('INSERT INTO usuarios (id, puntos) VALUES (?, ?)', (user_id, 0))
+        cursor.execute('INSERT INTO usuarios (id, saldo) VALUES (?, ?)', (user_id, 0))
         conn.commit()
         return 0
 
-def modificar_puntos(user_id, cantidad):
-    puntos = obtener_puntos(user_id) + cantidad
-    cursor.execute('UPDATE usuarios SET puntos = ? WHERE id = ?', (puntos, user_id))
+def modificar_saldo(user_id, cantidad_centavos):
+    saldo = obtener_saldo(user_id) + cantidad_centavos
+    cursor.execute('UPDATE usuarios SET saldo = ? WHERE id = ?', (saldo, user_id))
     conn.commit()
-    return puntos
+    return saldo
 
 # --- Comandos ---
 def start(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
-    obtener_puntos(user_id)
+    obtener_saldo(user_id)
     update.message.reply_text(
-        "🦜 ¡Bienvenido a ParrotedBot!\n\nUsa /opciones para ver el menú.\nUsa /ver_anuncio o /compartido para ganar puntos.\nUsa /puntos para ver tu saldo."
+        "🦜 ¡Bienvenido a ParrotedBot!\n\nUsa /compras para ver productos.\nUsa /ver_anuncio o /compartido para ganar saldo.\nUsa /cuenta para ver tu balance."
     )
 
-def puntos(update: Update, context: CallbackContext):
+def cuenta(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
-    puntos = obtener_puntos(user_id)
-    update.message.reply_text(f"📊 Tienes {puntos} puntos.")
+    saldo = obtener_saldo(user_id)
+    update.message.reply_text(f"💰 Tu saldo actual es: ${saldo / 100:.2f} USD")
 
 def compartido(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
-    modificar_puntos(user_id, 3)
-    update.message.reply_text("🤝 ¡Gracias por compartir! Has ganado 3 puntos.")
+    modificar_saldo(user_id, 3)  # $0.03
+    update.message.reply_text("🤝 ¡Gracias por compartir! Has ganado $0.03 USD.")
 
 def ver_anuncio(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
@@ -65,47 +65,47 @@ def ver_anuncio(update: Update, context: CallbackContext):
     keyboard = [[InlineKeyboardButton("✅ Ya vi el anuncio", callback_data="anuncio_visto")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        f"🎬 Mira este anuncio para ganar puntos:\n{anuncio_url}\n\nHaz clic, espera unos segundos y luego pulsa el botón.",
+        f"🎬 Mira este anuncio para ganar saldo:\n{anuncio_url}\n\nHaz clic, espera unos segundos y luego pulsa el botón.",
         reply_markup=reply_markup
     )
 
 def confirmar_anuncio(update: Update, context: CallbackContext):
     query = update.callback_query
     user_id = query.from_user.id
-    modificar_puntos(user_id, 3)
+    modificar_saldo(user_id, 3)  # $0.03
     query.answer()
-    query.edit_message_text("✅ ¡Gracias! Has ganado 3 puntos por ver el anuncio.")
+    query.edit_message_text("✅ ¡Gracias! Has ganado $0.03 USD por ver el anuncio.")
 
-def opciones_menu(update: Update, context: CallbackContext):
+def compras_menu(update: Update, context: CallbackContext):
     keyboard = [
-        [InlineKeyboardButton(f"{nombre} ({datos['costo']} pts)", callback_data=nombre)]
-        for nombre, datos in opciones.items()
+        [InlineKeyboardButton(f"{nombre} (${datos['precio'] / 100:.2f})", callback_data=nombre)]
+        for nombre, datos in productos.items()
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("📦 Selecciona una opción:", reply_markup=reply_markup)
+    update.message.reply_text("🛒 Elige un producto para comprar:", reply_markup=reply_markup)
 
-def manejar_opcion(update: Update, context: CallbackContext):
+def manejar_compra(update: Update, context: CallbackContext):
     query = update.callback_query
     user_id = query.from_user.id
-    opcion = query.data
-    puntos = obtener_puntos(user_id)
-    datos = opciones.get(opcion)
+    producto = query.data
+    saldo = obtener_saldo(user_id)
+    datos = productos.get(producto)
 
     if not datos:
         query.answer()
-        query.edit_message_text("❌ Opción no válida.")
+        query.edit_message_text("❌ Producto no válido.")
         return
 
-    costo = datos["costo"]
+    precio = datos["precio"]
     contenido = datos["contenido"]
 
-    if puntos >= costo:
-        modificar_puntos(user_id, -costo)
+    if saldo >= precio:
+        modificar_saldo(user_id, -precio)
         query.answer()
-        query.edit_message_text(f"✅ Has elegido: {opcion}\nCosto: {costo} puntos\nContenido:\n{contenido}")
+        query.edit_message_text(f"✅ Has comprado: {producto}\nPrecio: ${precio / 100:.2f}\nContenido:\n{contenido}")
     else:
         query.answer()
-        query.edit_message_text(f"⚠️ No tienes suficientes puntos. Esta opción cuesta {costo} puntos.")
+        query.edit_message_text(f"⚠️ No tienes suficiente saldo. Este producto cuesta ${precio / 100:.2f} USD.")
 
 # --- Main ---
 def main():
@@ -117,11 +117,11 @@ def main():
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("puntos", puntos))
+    dp.add_handler(CommandHandler("cuenta", cuenta))
     dp.add_handler(CommandHandler("compartido", compartido))
     dp.add_handler(CommandHandler("ver_anuncio", ver_anuncio))
-    dp.add_handler(CommandHandler("opciones", opciones_menu))
-    dp.add_handler(CallbackQueryHandler(manejar_opcion))
+    dp.add_handler(CommandHandler("compras", compras_menu))
+    dp.add_handler(CallbackQueryHandler(manejar_compra))
     dp.add_handler(CallbackQueryHandler(confirmar_anuncio, pattern="anuncio_visto"))
 
     updater.start_polling()
