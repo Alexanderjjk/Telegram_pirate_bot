@@ -3,6 +3,19 @@ import sqlite3
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
+import datetime
+import os
+
+def verificar_horario():
+    ahora = datetime.datetime.now()
+    hora = ahora.hour
+    minuto = ahora.minute
+
+    if (hora == 0 and minuto >= 30) or (0 < hora < 7) or (hora == 7 and minuto < 49):
+        print("⏱️ Fuera de horario. Cerrando contenedor.")
+        os._exit(0)  # Mata el proceso principal
+
+verificar_horario()
 
 # --- Token desde variable de entorno ---
 TOKEN = os.getenv("BOT_TOKEN")
