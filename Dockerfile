@@ -15,8 +15,8 @@ COPY . .
 # Copiar archivo de cron
 COPY crontab /etc/cron.d/bot-cron
 
-# Dar permisos al cron
-RUN chmod 0644 /etc/cron.d/bot-cron && crontab /etc/cron.d/bot-cron
+# Dar permisos y habilitar cron
+RUN chmod 0644 /etc/cron.d/bot-cron
 
 # Arrancar cron y el bot
-CMD cron && python bot.py
+CMD service cron start && python bot.py
