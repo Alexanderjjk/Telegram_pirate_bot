@@ -1,0 +1,5 @@
+# Apagar el bot a las 12:30 AM
+30 0 * * * pkill -f "python bot.py"
+
+# Encender el bot a las 7:49 AM
+49 7 * * * cd /app && python bot.py &
